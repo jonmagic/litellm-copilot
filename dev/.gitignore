@@ -1,0 +1,6 @@
+# Virtual environment for local LiteLLM development
+.litellm-venv/
+
+# Runtime files
+.proxy.log
+.proxy.pid

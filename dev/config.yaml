@@ -1,0 +1,94 @@
+# Development config for testing Gemini CLI with LiteLLM + GitHub Copilot
+# Uses port 4001 by default to avoid conflicts with production proxy on 4000
+#
+# Requirements:
+#   - LiteLLM v1.73.3-nightly or above (use --prerelease=allow with uvx)
+#   - See: https://docs.litellm.ai/docs/tutorials/litellm_gemini_cli
+
+model_list:
+  # Primary Gemini models via GitHub Copilot
+  - model_name: gemini-2.5-pro
+    litellm_params:
+      model: github_copilot/gemini-2.5-pro
+      api_key: os.environ/GITHUB_TOKEN
+      extra_headers:
+        Editor-Version: "vscode/1.95.0"
+        Editor-Plugin-Version: "copilot-chat/0.22.4"
+        Openai-Organization: "github-copilot"
+        Openai-Intent: "conversation-panel"
+        Copilot-Vision-Request: "true"
+
+  - model_name: gemini-2.5-flash
+    litellm_params:
+      model: github_copilot/gemini-2.5-pro
+      api_key: os.environ/GITHUB_TOKEN
+      extra_headers:
+        Editor-Version: "vscode/1.95.0"
+        Editor-Plugin-Version: "copilot-chat/0.22.4"
+        Openai-Organization: "github-copilot"
+        Openai-Intent: "conversation-panel"
+        Copilot-Vision-Request: "true"
+
+  - model_name: gemini-3-flash-preview
+    litellm_params:
+      model: github_copilot/gemini-3-flash-preview
+      api_key: os.environ/GITHUB_TOKEN
+      extra_headers:
+        Editor-Version: "vscode/1.95.0"
+        Editor-Plugin-Version: "copilot-chat/0.22.4"
+        Openai-Organization: "github-copilot"
+        Openai-Intent: "conversation-panel"
+        Copilot-Vision-Request: "true"
+
+  - model_name: gemini-3-pro-preview
+    litellm_params:
+      model: github_copilot/gemini-3-pro-preview
+      api_key: os.environ/GITHUB_TOKEN
+      extra_headers:
+        Editor-Version: "vscode/1.95.0"
+        Editor-Plugin-Version: "copilot-chat/0.22.4"
+        Openai-Organization: "github-copilot"
+        Openai-Intent: "conversation-panel"
+        Copilot-Vision-Request: "true"
+
+  # Wildcard fallback for any model not explicitly listed
+  - model_name: "*"
+    litellm_params:
+      model: github_copilot/*
+      api_key: os.environ/GITHUB_TOKEN
+      extra_headers:
+        Editor-Version: "vscode/1.95.0"
+        Editor-Plugin-Version: "copilot-chat/0.22.4"
+        Openai-Organization: "github-copilot"
+        Openai-Intent: "conversation-panel"
+        Copilot-Vision-Request: "true"
+
+litellm_settings:
+  drop_params: true
+  # Enable detailed logging for debugging
+  set_verbose: true
+
+# Router settings for model aliasing
+# Maps Gemini CLI's default model names to our configured models
+router_settings:
+  model_group_alias:
+    # Gemini CLI may request these variants - map them to our available models
+    "gemini-2.5-flash-lite": "gemini-2.5-pro"
+    "gemini-2.5-flash-preview-04-17": "gemini-2.5-pro"
+    "gemini-2.5-pro-preview-05-06": "gemini-2.5-pro"
+    "gemini-2.0-flash": "gemini-2.5-pro"
+    "gemini-2.0-flash-lite": "gemini-2.5-pro"
+    "gemini-1.5-pro": "gemini-2.5-pro"
+    "gemini-1.5-flash": "gemini-2.5-pro"
+  # Default params applied to all LLM calls
+  default_litellm_params:
+    extra_headers:
+      Editor-Version: "vscode/1.95.0"
+      Editor-Plugin-Version: "copilot-chat/0.22.4"
+      Openai-Organization: "github-copilot"
+      Openai-Intent: "conversation-panel"
+      Copilot-Vision-Request: "true"
+
+general_settings:
+  # Enable request/response logging
+  enable_request_logging: true

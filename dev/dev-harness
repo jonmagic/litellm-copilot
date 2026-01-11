@@ -1,0 +1,426 @@
+#!/usr/bin/env zsh
+
+# dev-harness - Development test harness for iterating on Gemini CLI + LiteLLM
+#
+# This script provides a development environment for testing LiteLLM proxy
+# with GitHub Copilot models on an alternate port (4001 by default).
+#
+# IMPORTANT: Uses LiteLLM nightly builds (v1.73.3+ required for Gemini CLI support).
+# See: https://docs.litellm.ai/docs/tutorials/litellm_gemini_cli
+#
+# Usage:
+#   ./dev-harness start              - Start litellm proxy in background
+#   ./dev-harness stop               - Stop the background proxy
+#   ./dev-harness status             - Check if proxy is running
+#   ./dev-harness test               - Run a simple test query (OpenAI format)
+#   ./dev-harness test-google        - Test Google-native endpoint
+#   ./dev-harness gemini [args]      - Run gemini CLI with correct env vars
+#   ./dev-harness logs               - Tail the proxy logs
+#   ./dev-harness curl [endpoint]    - Test proxy directly with curl
+#   ./dev-harness models             - List available models
+#   ./dev-harness endpoints          - List API endpoints
+#   ./dev-harness debug-request      - Debug what Gemini CLI sends
+#
+# Environment:
+#   DEV_PORT     - Port for dev proxy (default: 4001)
+#   DEV_MODEL    - Model to use (default: gemini-2.5-pro)
+
+set -e
+
+# Configuration
+DEV_PORT="${DEV_PORT:-4001}"
+DEV_MODEL="${DEV_MODEL:-gemini-2.5-pro}"
+SCRIPT_DIR="${0:a:h}"
+PROJECT_ROOT="${SCRIPT_DIR:h}"
+DEV_CONFIG="$SCRIPT_DIR/config.yaml"
+PID_FILE="$SCRIPT_DIR/.proxy.pid"
+LOG_FILE="$SCRIPT_DIR/.proxy.log"
+
+# Local LiteLLM fork for development
+LITELLM_LOCAL_PATH="$HOME/code/jonmagic/litellm"
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+CYAN='\033[0;36m'
+NC='\033[0m' # No Color
+
+log_info() { echo -e "${BLUE}[INFO]${NC} $1"; }
+log_success() { echo -e "${GREEN}[OK]${NC} $1"; }
+log_warn() { echo -e "${YELLOW}[WARN]${NC} $1"; }
+log_error() { echo -e "${RED}[ERROR]${NC} $1"; }
+log_debug() { echo -e "${CYAN}[DEBUG]${NC} $1"; }
+
+# Check for required environment
+check_token() {
+  if [[ -z "$COPILOT_PROXY_TOKEN_CMD" ]]; then
+    log_error "COPILOT_PROXY_TOKEN_CMD is not set"
+    exit 1
+  fi
+}
+
+# Get GitHub token
+get_token() {
+  eval "$COPILOT_PROXY_TOKEN_CMD"
+}
+
+# Check if proxy is running
+is_running() {
+  if [[ -f "$PID_FILE" ]]; then
+    local pid=$(cat "$PID_FILE")
+    if kill -0 "$pid" 2>/dev/null; then
+      return 0
+    fi
+  fi
+  return 1
+}
+
+# Start the proxy
+cmd_start() {
+  if is_running; then
+    log_warn "Proxy already running (PID: $(cat $PID_FILE))"
+    return 0
+  fi
+
+  check_token
+
+  log_info "Starting LiteLLM proxy on port $DEV_PORT..."
+  log_info "Config: $DEV_CONFIG"
+  log_info "Model: $DEV_MODEL"
+
+  # Get token
+  export GITHUB_TOKEN=$(get_token)
+
+  # Check for uv
+  if ! command -v uvx &> /dev/null; then
+    log_error "uv is not installed"
+    exit 1
+  fi
+
+  # Start proxy in background using local LiteLLM fork
+  if [[ ! -d "$LITELLM_LOCAL_PATH" ]]; then
+    log_error "Local LiteLLM not found at: $LITELLM_LOCAL_PATH"
+    log_info "Clone it with: git clone https://github.com/jonmagic/litellm $LITELLM_LOCAL_PATH"
+    exit 1
+  fi
+
+  log_info "Using local LiteLLM from: $LITELLM_LOCAL_PATH"
+
+  # Create/use virtual environment for local litellm
+  local VENV_PATH="$SCRIPT_DIR/.litellm-venv"
+  if [[ ! -d "$VENV_PATH" ]]; then
+    log_info "Creating virtual environment with Python 3.13..."
+    # Use Python 3.13 explicitly (uvloop doesn't support 3.14+)
+    if command -v python3.13 &> /dev/null; then
+      python3.13 -m venv "$VENV_PATH"
+    else
+      log_error "Python 3.13 not found. Install with: brew install python@3.13"
+      exit 1
+    fi
+  fi
+
+  # Install local litellm in editable mode if needed
+  if [[ ! -f "$VENV_PATH/.installed" ]]; then
+    log_info "Installing LiteLLM dependencies (first run, may take a minute)..."
+    "$VENV_PATH/bin/pip" install --quiet --upgrade pip
+    "$VENV_PATH/bin/pip" install --quiet -e "${LITELLM_LOCAL_PATH}[proxy]" || {
+      log_error "Failed to install dependencies"
+      exit 1
+    }
+    touch "$VENV_PATH/.installed"
+  fi
+
+  # Run using the venv
+  nohup "$VENV_PATH/bin/litellm" \
+    --config "$DEV_CONFIG" \
+    --model "$DEV_MODEL" \
+    --port "$DEV_PORT" \
+    > "$LOG_FILE" 2>&1 &
+
+  local pid=$!
+  echo "$pid" > "$PID_FILE"
+
+  log_info "Waiting for proxy to start..."
+  sleep 3
+
+  # Check if it started successfully
+  if is_running; then
+    log_success "Proxy started (PID: $pid)"
+    log_info "Logs: $LOG_FILE"
+    echo ""
+    log_info "Test with:"
+    log_info "  $0 test           # OpenAI-compatible endpoint"
+    log_info "  $0 test-google    # Google-native endpoint"
+    log_info "  $0 models         # List available models"
+  else
+    log_error "Proxy failed to start. Check logs:"
+    tail -20 "$LOG_FILE"
+    rm -f "$PID_FILE"
+    exit 1
+  fi
+}
+
+# Stop the proxy
+cmd_stop() {
+  if ! is_running; then
+    log_warn "Proxy is not running"
+    rm -f "$PID_FILE"
+    return 0
+  fi
+
+  local pid=$(cat "$PID_FILE")
+  log_info "Stopping proxy (PID: $pid)..."
+  kill "$pid" 2>/dev/null || true
+  rm -f "$PID_FILE"
+  log_success "Proxy stopped"
+}
+
+# Check status
+cmd_status() {
+  if is_running; then
+    local pid=$(cat "$PID_FILE")
+    log_success "Proxy is running (PID: $pid)"
+    log_info "Port: $DEV_PORT"
+    log_info "URL: http://localhost:$DEV_PORT"
+
+    # Try to hit health endpoint
+    if curl -s "http://localhost:$DEV_PORT/health" > /dev/null 2>&1; then
+      log_success "Health check passed"
+    else
+      log_warn "Health check failed (proxy may still be starting)"
+    fi
+  else
+    log_warn "Proxy is not running"
+    exit 1
+  fi
+}
+
+# Run gemini with correct environment
+cmd_gemini() {
+  if ! is_running; then
+    log_error "Proxy is not running. Start it first with: $0 start"
+    exit 1
+  fi
+
+  export GOOGLE_GEMINI_BASE_URL="http://localhost:$DEV_PORT"
+  export GEMINI_API_KEY="fake-key"  # LiteLLM uses GITHUB_TOKEN from config
+
+  log_info "Running: gemini $@"
+  log_info "GOOGLE_GEMINI_BASE_URL=$GOOGLE_GEMINI_BASE_URL"
+  echo ""
+
+  gemini "$@"
+}
+
+# Run a simple test (OpenAI format)
+cmd_test() {
+  if ! is_running; then
+    log_error "Proxy is not running. Start it first with: $0 start"
+    exit 1
+  fi
+
+  log_info "Testing proxy with OpenAI-compatible /chat/completions endpoint..."
+  log_debug "Model: $DEV_MODEL"
+  echo ""
+
+  local response=$(curl -s -X POST "http://localhost:$DEV_PORT/chat/completions" \
+    -H "Content-Type: application/json" \
+    -H "Authorization: Bearer fake-key" \
+    -d '{
+      "model": "'"$DEV_MODEL"'",
+      "messages": [{"role": "user", "content": "Say hello in exactly 5 words."}],
+      "max_tokens": 50
+    }')
+
+  log_info "Response:"
+  echo "$response" | jq . 2>/dev/null || echo "$response"
+  echo ""
+
+  if echo "$response" | grep -q "choices"; then
+    log_success "OpenAI-compatible endpoint test passed!"
+  else
+    log_error "Test failed"
+    log_info "Check logs with: $0 logs"
+  fi
+}
+
+# Test Google-native endpoint
+cmd_test_google() {
+  if ! is_running; then
+    log_error "Proxy is not running. Start it first with: $0 start"
+    exit 1
+  fi
+
+  log_info "Testing Google-native /models/{model}:generateContent endpoint..."
+  log_warn "This endpoint requires LiteLLM to translate to OpenAI format"
+  log_debug "Model: $DEV_MODEL"
+  echo ""
+
+  local response=$(curl -s -X POST "http://localhost:$DEV_PORT/models/$DEV_MODEL:generateContent" \
+    -H "Content-Type: application/json" \
+    -H "Authorization: Bearer fake-key" \
+    -d '{
+      "contents": [{"parts": [{"text": "Say hello in exactly 3 words"}]}]
+    }')
+
+  log_info "Response:"
+  echo "$response" | jq . 2>/dev/null || echo "$response"
+  echo ""
+
+  if echo "$response" | grep -q "candidates"; then
+    log_success "Google-native endpoint test passed!"
+  elif echo "$response" | grep -q "Internal Server Error"; then
+    log_error "Google-native endpoint failed (expected with GitHub Copilot backend)"
+    log_info "Check logs for details: $0 logs"
+  else
+    log_warn "Unexpected response"
+  fi
+}
+
+# List available models
+cmd_models() {
+  if ! is_running; then
+    log_error "Proxy is not running. Start it first with: $0 start"
+    exit 1
+  fi
+
+  log_info "Available models:"
+  curl -s "http://localhost:$DEV_PORT/models" | jq -r '.data[].id' 2>/dev/null || \
+    curl -s "http://localhost:$DEV_PORT/models"
+}
+
+# List API endpoints
+cmd_endpoints() {
+  if ! is_running; then
+    log_error "Proxy is not running. Start it first with: $0 start"
+    exit 1
+  fi
+
+  log_info "Available API endpoints (filtered for relevant ones):"
+  curl -s "http://localhost:$DEV_PORT/openapi.json" 2>/dev/null | \
+    jq -r '.paths | keys[]' | \
+    grep -E "chat|model|gemini|generate|health" | \
+    sort
+}
+
+# Debug what requests look like
+cmd_debug_request() {
+  log_info "Comparison of API formats:"
+  echo ""
+
+  echo -e "${CYAN}OpenAI Format (/chat/completions):${NC}"
+  cat << 'EOF'
+{
+  "model": "gemini-2.5-pro",
+  "messages": [{"role": "user", "content": "Hello"}],
+  "max_tokens": 100
+}
+EOF
+  echo ""
+
+  echo -e "${CYAN}Google-native Format (/models/{model}:generateContent):${NC}"
+  cat << 'EOF'
+{
+  "contents": [{"parts": [{"text": "Hello"}]}],
+  "generationConfig": {"maxOutputTokens": 100}
+}
+EOF
+  echo ""
+
+  log_info "GitHub Copilot models only support OpenAI format."
+  log_info "Gemini CLI sends Google-native format requests."
+  log_info "This is the fundamental incompatibility."
+}
+
+# Tail logs
+cmd_logs() {
+  if [[ -f "$LOG_FILE" ]]; then
+    tail -f "$LOG_FILE"
+  else
+    log_warn "No log file found"
+  fi
+}
+
+# View recent logs (non-following)
+cmd_logs_recent() {
+  local lines="${1:-50}"
+  if [[ -f "$LOG_FILE" ]]; then
+    tail -n "$lines" "$LOG_FILE"
+  else
+    log_warn "No log file found"
+  fi
+}
+
+# Direct curl test
+cmd_curl() {
+  local endpoint="${1:-/health}"
+  log_info "Curl: http://localhost:$DEV_PORT$endpoint"
+  curl -s "http://localhost:$DEV_PORT$endpoint" | jq . 2>/dev/null || curl -s "http://localhost:$DEV_PORT$endpoint"
+}
+
+# Show help
+cmd_help() {
+  cat << EOF
+dev-harness - Development test harness for Gemini CLI + LiteLLM + GitHub Copilot
+
+Uses local LiteLLM fork from: $LITELLM_LOCAL_PATH
+For developing fixes to the generateContent -> acompletion adapter.
+
+Usage: $0 <command> [args]
+
+Proxy Management:
+  start              Start litellm proxy in background on port $DEV_PORT
+  stop               Stop the background proxy
+  status             Check if proxy is running
+  restart            Restart the proxy
+
+Testing:
+  test               Test OpenAI-compatible /chat/completions endpoint
+  test-google        Test Google-native /generateContent endpoint
+  gemini [args]      Run gemini CLI with GOOGLE_GEMINI_BASE_URL set
+
+Debugging:
+  logs               Tail the proxy logs (follow mode)
+  logs-recent [n]    Show last n lines of logs (default: 50)
+  models             List available models
+  endpoints          List API endpoints
+  curl [endpoint]    Test any proxy endpoint directly
+  debug-request      Show API format differences
+
+Environment:
+  DEV_PORT=$DEV_PORT     Port for dev proxy
+  DEV_MODEL=$DEV_MODEL   Model to use
+
+Examples:
+  $0 start                           # Start the proxy
+  $0 test                            # Test OpenAI endpoint
+  $0 test-google                     # Test Google-native endpoint
+  $0 gemini 'What is 2+2?'           # Run Gemini CLI
+  DEV_PORT=4002 $0 start             # Use different port
+EOF
+}
+
+# Main dispatch
+case "${1:-help}" in
+  start)        cmd_start ;;
+  stop)         cmd_stop ;;
+  status)       cmd_status ;;
+  restart)      cmd_stop; cmd_start ;;
+  gemini)       shift; cmd_gemini "$@" ;;
+  test)         cmd_test ;;
+  test-google)  cmd_test_google ;;
+  models)       cmd_models ;;
+  endpoints)    cmd_endpoints ;;
+  logs)         cmd_logs ;;
+  logs-recent)  shift; cmd_logs_recent "$@" ;;
+  curl)         shift; cmd_curl "$@" ;;
+  debug-request) cmd_debug_request ;;
+  help|--help|-h) cmd_help ;;
+  *)
+    log_error "Unknown command: $1"
+    cmd_help
+    exit 1
+    ;;
+esac
