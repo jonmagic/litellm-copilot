@@ -1,12 +1,17 @@
 #!/usr/bin/env zsh
 
-# dev-harness - Development test harness for iterating on Gemini CLI + LiteLLM
+# dev-harness - Development test harness for iterating on CLI tools + LiteLLM
 #
 # This script provides a development environment for testing LiteLLM proxy
 # with GitHub Copilot models on an alternate port (4001 by default).
 #
+# Supported CLIs:
+#   - Gemini CLI: Uses Google-native generateContent API (requires LiteLLM adapter)
+#   - Codex CLI:  Uses OpenAI-compatible chat/completions API (works directly)
+#
 # IMPORTANT: Uses LiteLLM nightly builds (v1.73.3+ required for Gemini CLI support).
 # See: https://docs.litellm.ai/docs/tutorials/litellm_gemini_cli
+# See: https://docs.litellm.ai/docs/tutorials/openai_codex
 #
 # Usage:
 #   ./dev-harness start              - Start litellm proxy in background
@@ -15,6 +20,8 @@
 #   ./dev-harness test               - Run a simple test query (OpenAI format)
 #   ./dev-harness test-google        - Test Google-native endpoint
 #   ./dev-harness gemini [args]      - Run gemini CLI with correct env vars
+#   ./dev-harness codex [args]       - Run codex CLI with correct env vars
+#   ./dev-harness test-codex         - Quick test of Codex CLI
 #   ./dev-harness logs               - Tail the proxy logs
 #   ./dev-harness curl [endpoint]    - Test proxy directly with curl
 #   ./dev-harness models             - List available models
@@ -214,6 +221,58 @@ cmd_gemini() {
   gemini "$@"
 }
 
+# Run codex with correct environment
+cmd_codex() {
+  if ! is_running; then
+    log_error "Proxy is not running. Start it first with: $0 start"
+    exit 1
+  fi
+
+  export OPENAI_BASE_URL="http://localhost:$DEV_PORT"
+  export OPENAI_API_KEY="fake-key"  # LiteLLM uses GITHUB_TOKEN from config
+
+  log_info "Running: codex $@"
+  log_info "OPENAI_BASE_URL=$OPENAI_BASE_URL"
+  echo ""
+
+  codex "$@"
+}
+
+# Quick test of Codex CLI
+cmd_test_codex() {
+  if ! is_running; then
+    log_error "Proxy is not running. Start it first with: $0 start"
+    exit 1
+  fi
+
+  if ! command -v codex &> /dev/null; then
+    log_error "Codex CLI not installed. Install with: npm install -g @openai/codex@alpha"
+    exit 1
+  fi
+
+  log_info "Testing Codex CLI with dev proxy..."
+  log_info "OPENAI_BASE_URL=http://localhost:$DEV_PORT"
+  log_info "Model: $DEV_MODEL"
+  echo ""
+
+  export OPENAI_BASE_URL="http://localhost:$DEV_PORT"
+  export OPENAI_API_KEY="fake-key"
+
+  # Run codex in non-interactive mode with a simple prompt
+  log_info "Running: codex exec 'Say hello in exactly 3 words'"
+  echo ""
+
+  codex exec "Say hello in exactly 3 words" 2>&1 || {
+    local exit_code=$?
+    log_error "Codex CLI test failed (exit code: $exit_code)"
+    log_info "Check logs with: $0 logs"
+    return $exit_code
+  }
+
+  echo ""
+  log_success "Codex CLI test completed!"
+}
+
 # Run a simple test (OpenAI format)
 cmd_test() {
   if ! is_running; then
@@ -363,10 +422,14 @@ cmd_curl() {
 # Show help
 cmd_help() {
   cat << EOF
-dev-harness - Development test harness for Gemini CLI + LiteLLM + GitHub Copilot
+dev-harness - Development test harness for CLI tools + LiteLLM + GitHub Copilot
 
 Uses local LiteLLM fork from: $LITELLM_LOCAL_PATH
 For developing fixes to the generateContent -> acompletion adapter.
+
+Supported CLIs:
+  - Gemini CLI: npm install -g @google/gemini-cli@preview
+  - Codex CLI:  npm install -g @openai/codex@alpha
 
 Usage: $0 <command> [args]
 
@@ -379,7 +442,9 @@ Proxy Management:
 Testing:
   test               Test OpenAI-compatible /chat/completions endpoint
   test-google        Test Google-native /generateContent endpoint
+  test-codex         Quick test of Codex CLI (non-interactive)
   gemini [args]      Run gemini CLI with GOOGLE_GEMINI_BASE_URL set
+  codex [args]       Run codex CLI with OPENAI_BASE_URL set
 
 Debugging:
   logs               Tail the proxy logs (follow mode)
@@ -397,7 +462,9 @@ Examples:
   $0 start                           # Start the proxy
   $0 test                            # Test OpenAI endpoint
   $0 test-google                     # Test Google-native endpoint
+  $0 test-codex                      # Test Codex CLI
   $0 gemini 'What is 2+2?'           # Run Gemini CLI
+  $0 codex 'explain this codebase'   # Run Codex CLI
   DEV_PORT=4002 $0 start             # Use different port
 EOF
 }
@@ -409,8 +476,10 @@ case "${1:-help}" in
   status)       cmd_status ;;
   restart)      cmd_stop; cmd_start ;;
   gemini)       shift; cmd_gemini "$@" ;;
+  codex)        shift; cmd_codex "$@" ;;
   test)         cmd_test ;;
   test-google)  cmd_test_google ;;
+  test-codex)   cmd_test_codex ;;
   models)       cmd_models ;;
   endpoints)    cmd_endpoints ;;
   logs)         cmd_logs ;;
