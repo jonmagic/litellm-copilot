@@ -6,17 +6,23 @@ Unlike other "copilot-proxy" projects that implement custom proxy servers, this 
 
 ## Prerequisites
 
-- Python 3.8+
+- [uv](https://docs.astral.sh/uv/) (Python package runner)
 - [fzf](https://github.com/junegunn/fzf) (for interactive model selection)
 - A GitHub account with Copilot access
 - A secret manager (1Password CLI or macOS Keychain)
 
 ## Setup
 
-### 1. Install LiteLLM
+### 1. Install uv
 
+**macOS:**
 ```bash
-python -m pip install --upgrade 'litellm[proxy]' backoff
+brew install uv
+```
+
+**Linux:**
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
 ### 2. Create a GitHub Personal Access Token

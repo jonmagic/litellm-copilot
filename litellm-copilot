@@ -101,4 +101,12 @@ export GITHUB_TOKEN="$TOKEN"
 SCRIPT_DIR="${0:a:h}"
 CONFIG_FILE="$SCRIPT_DIR/config.yaml"
 
-litellm --config "$CONFIG_FILE" --model github_copilot/$SELECTED_MODEL --port $PORT
+# Check for uv
+if ! command -v uvx &> /dev/null; then
+  echo "Error: uv is not installed"
+  echo "Install it with: brew install uv (macOS) or curl -LsSf https://astral.sh/uv/install.sh | sh (Linux)"
+  exit 1
+fi
+
+# Pin to Python 3.13 because uvloop doesn't support Python 3.14+
+uvx --python 3.13 --from 'litellm[proxy]' litellm --config "$CONFIG_FILE" --model github_copilot/$SELECTED_MODEL --port $PORT
