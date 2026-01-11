@@ -158,12 +158,6 @@ Test:
 gemini -p "What is 2+2?"
 ```
 
-### Open WebUI
-
-In Open WebUI, go to **Settings → Connections** and set:
-- **URL**: `http://localhost:4000`
-- **Key**: `fake-key`
-
 ## Supported Models
 
 Last updated: 2026-01-11
