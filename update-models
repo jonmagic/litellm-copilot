@@ -14,6 +14,7 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LITELLM_SCRIPT="$SCRIPT_DIR/litellm-copilot"
 README_FILE="$SCRIPT_DIR/README.md"
+CONFIG_FILE="$SCRIPT_DIR/config.yaml"
 TODAY=$(date +%Y-%m-%d)
 
 MODELS_API_URL="https://api.githubcopilot.com/models"
@@ -180,6 +181,13 @@ for model_id in "${WORKING_MODELS[@]}"; do
 done
 TABLE_ROWS=${TABLE_ROWS%$'\n'}  # Remove trailing newline
 
+# Generate model_group_alias entries for config.yaml (only supported models, identity mappings)
+CONFIG_ALIASES=""
+for model_id in "${WORKING_MODELS[@]}"; do
+  CONFIG_ALIASES+="    \"$model_id\": \"$model_id\""$'\n'
+done
+CONFIG_ALIASES=${CONFIG_ALIASES%$'\n'}  # Remove trailing newline
+
 if $DRY_RUN; then
   echo "=== DRY RUN - No files will be modified ==="
   echo
@@ -190,6 +198,9 @@ if $DRY_RUN; then
   echo "$TABLE_HEADER"
   echo "$TABLE_SEP"
   echo "$TABLE_ROWS"
+  echo
+  echo "--- Supported models for config.yaml ---"
+  echo "$CONFIG_ALIASES"
   echo
   echo "--- Date: $TODAY ---"
   exit 0
@@ -262,6 +273,38 @@ while IFS= read -r line || [[ -n "$line" ]]; do
 done < "$README_FILE"
 
 mv "$TEMP_FILE" "$README_FILE"
+
+# Update config.yaml
+# Strategy: Replace lines between "# Supported models" comment and "# Gemini CLI aliases" comment
+echo "Updating $CONFIG_FILE..."
+
+TEMP_FILE=$(mktemp)
+IN_SUPPORTED_MODELS=false
+SUPPORTED_MODELS_WRITTEN=false
+
+while IFS= read -r line || [[ -n "$line" ]]; do
+  # Start of supported models section
+  if [[ "$line" == *"# Supported models"* ]]; then
+    IN_SUPPORTED_MODELS=true
+    printf '%s\n' "$line" >> "$TEMP_FILE"
+    if ! $SUPPORTED_MODELS_WRITTEN; then
+      printf '%s\n' "$CONFIG_ALIASES" >> "$TEMP_FILE"
+      SUPPORTED_MODELS_WRITTEN=true
+    fi
+  # End of supported models section (start of Gemini CLI aliases or other section)
+  elif $IN_SUPPORTED_MODELS && [[ "$line" == *"# Gemini CLI aliases"* ]]; then
+    IN_SUPPORTED_MODELS=false
+    printf '%s\n' "$line" >> "$TEMP_FILE"
+  # Inside supported models section - skip old entries (already written new ones)
+  elif $IN_SUPPORTED_MODELS && [[ "$line" =~ ^[[:space:]]*\" ]]; then
+    continue
+  # Regular line
+  else
+    printf '%s\n' "$line" >> "$TEMP_FILE"
+  fi
+done < "$CONFIG_FILE"
+
+mv "$TEMP_FILE" "$CONFIG_FILE"
 
 echo
 echo "Done! Updated models list to $TODAY"

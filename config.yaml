@@ -1,14 +1,46 @@
 model_list:
-  - model_name: github_copilot/*
+  - model_name: "*"
     litellm_params:
       model: github_copilot/*
       api_key: os.environ/GITHUB_TOKEN
-      extra_headers:
-        Editor-Version: "vscode/1.95.0"
-        Editor-Plugin-Version: "copilot-chat/0.22.4"
-        Openai-Organization: "github-copilot"
-        Openai-Intent: "conversation-panel"
-        Copilot-Vision-Request: "true"
 
 litellm_settings:
   drop_params: true
+
+router_settings:
+  model_group_alias:
+    # Supported models (synced by update-models)
+    "claude-haiku-4.5": "claude-haiku-4.5"
+    "claude-opus-4.5": "claude-opus-4.5"
+    "claude-sonnet-4": "claude-sonnet-4"
+    "claude-sonnet-4.5": "claude-sonnet-4.5"
+    "gemini-2.5-pro": "gemini-2.5-pro"
+    "gemini-3-flash-preview": "gemini-3-flash-preview"
+    "gemini-3-pro-preview": "gemini-3-pro-preview"
+    "gpt-4.1": "gpt-4.1"
+    "gpt-4o": "gpt-4o"
+    "gpt-5": "gpt-5"
+    "gpt-5-codex": "gpt-5-codex"
+    "gpt-5-mini": "gpt-5-mini"
+    "gpt-5.1": "gpt-5.1"
+    "gpt-5.1-codex": "gpt-5.1-codex"
+    "gpt-5.1-codex-max": "gpt-5.1-codex-max"
+    "gpt-5.1-codex-mini": "gpt-5.1-codex-mini"
+    "gpt-5.2": "gpt-5.2"
+    "grok-code-fast-1": "grok-code-fast-1"
+    # Gemini CLI aliases (map unsupported model names to supported ones)
+    "gemini-2.5-flash-lite": "gemini-3-flash-preview"
+    "gemini-2.5-flash": "gemini-3-flash-preview"
+    "gemini-2.5-flash-preview-04-17": "gemini-3-flash-preview"
+    "gemini-2.0-flash": "gemini-3-flash-preview"
+    "gemini-2.0-flash-lite": "gemini-3-flash-preview"
+    "gemini-1.5-flash": "gemini-3-flash-preview"
+    "gemini-2.5-pro-preview-05-06": "gemini-3-pro-preview"
+    "gemini-1.5-pro": "gemini-3-pro-preview"
+  default_litellm_params:
+    extra_headers:
+      Editor-Version: "vscode/1.95.0"
+      Editor-Plugin-Version: "copilot-chat/0.22.4"
+      Openai-Organization: "github-copilot"
+      Openai-Intent: "conversation-panel"
+      Copilot-Vision-Request: "true"

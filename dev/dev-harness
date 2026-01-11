@@ -317,7 +317,7 @@ cmd_test_google() {
   log_debug "Model: $DEV_MODEL"
   echo ""
 
-  local response=$(curl -s -X POST "http://localhost:$DEV_PORT/models/$DEV_MODEL:generateContent" \
+  local response=$(curl -s -X POST "http://localhost:${DEV_PORT}/models/${DEV_MODEL}:generateContent" \
     -H "Content-Type: application/json" \
     -H "Authorization: Bearer fake-key" \
     -d '{
