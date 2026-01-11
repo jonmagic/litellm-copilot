@@ -84,9 +84,15 @@ Start the proxy:
 litellm-copilot
 ```
 
+To use a custom port:
+
+```bash
+litellm-copilot --port 8080
+```
+
 If `COPILOT_MODEL` is not set, you'll get an interactive model picker via fzf. Otherwise, it starts immediately with your configured model.
 
-The proxy runs on `http://localhost:4000`.
+The proxy runs on `http://localhost:4000` by default.
 
 ## Using with AI Agents
 
@@ -137,7 +143,6 @@ Last updated: 2026-01-11
 | --- | --- | --- |
 | claude-haiku-4.5 | Anthropic | versatile |
 | claude-opus-4.5 | Anthropic | powerful |
-| claude-opus-41 | Anthropic | powerful |
 | claude-sonnet-4 | Anthropic | versatile |
 | claude-sonnet-4.5 | Anthropic | versatile |
 | gemini-2.5-pro | Google | powerful |

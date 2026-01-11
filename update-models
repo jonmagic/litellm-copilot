@@ -1,187 +1,291 @@
-#!/usr/bin/env bash
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.10"
+# dependencies = [
+#     "requests",
+#     "litellm",
+# ]
+# ///
+"""
+update-models - Fetch available Copilot models, test each with litellm, and update files.
 
-# update-models - Fetch available Copilot models and update litellm-copilot + README
-#
-# Environment variables:
-#   GITHUB_TOKEN - GitHub PAT with copilot scope (required)
-#
-# Usage:
-#   ./update-models              # Update files in place
-#   ./update-models --dry-run    # Show what would change without modifying files
+Environment variables:
+  GITHUB_TOKEN - GitHub PAT with copilot scope (required)
 
-set -e
+Usage:
+  ./update-models              # Update files in place
+  ./update-models --dry-run    # Show what would change without modifying files
+"""
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-LITELLM_SCRIPT="$SCRIPT_DIR/litellm-copilot"
-README_FILE="$SCRIPT_DIR/README.md"
-API_URL="https://api.githubcopilot.com/models"
-TODAY=$(date +%Y-%m-%d)
+import argparse
+import os
+import re
+import sys
+from datetime import date
 
-DRY_RUN=false
-if [[ "$1" == "--dry-run" ]]; then
-  DRY_RUN=true
-fi
+import requests
+from litellm import completion, responses
 
-# Check for required tools
-if ! command -v jq &> /dev/null; then
-  echo "Error: jq is required but not installed"
-  echo "Install it with: brew install jq"
-  exit 1
-fi
 
-if ! command -v curl &> /dev/null; then
-  echo "Error: curl is required but not installed"
-  exit 1
-fi
+API_URL = "https://api.githubcopilot.com/models"
+HEADERS = {
+    "Editor-Version": "vscode/1.95.0",
+    "Editor-Plugin-Version": "copilot-chat/0.22.4",
+    "Copilot-Integration-Id": "vscode-chat",
+}
+TEST_PROMPT = "Say hello in one word."
 
-# Check for GITHUB_TOKEN
-if [[ -z "$GITHUB_TOKEN" ]]; then
-  echo "Error: GITHUB_TOKEN is not set"
-  echo "Set it to a GitHub PAT with the 'copilot' scope"
-  exit 1
-fi
 
-echo "Fetching models from GitHub Copilot API..."
+def fetch_models(token: str) -> list[dict]:
+    """Fetch available models from GitHub Copilot API."""
+    headers = {**HEADERS, "Authorization": f"Bearer {token}"}
+    resp = requests.get(API_URL, headers=headers, timeout=30)
+    resp.raise_for_status()
 
-# Fetch models from API
-RESPONSE=$(curl -s -w "\n%{http_code}" \
-  -H "Authorization: Bearer $GITHUB_TOKEN" \
-  -H "Editor-Version: vscode/1.95.0" \
-  -H "Editor-Plugin-Version: copilot-chat/0.22.4" \
-  -H "Copilot-Integration-Id: vscode-chat" \
-  "$API_URL")
+    data = resp.json().get("data", [])
 
-HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
-BODY=$(echo "$RESPONSE" | sed '$d')
+    # Filter: model_picker_enabled == true and not "Internal Only"
+    models = [
+        m
+        for m in data
+        if m.get("model_picker_enabled") is True
+        and "Internal Only" not in m.get("name", "")
+    ]
 
-if [[ "$HTTP_CODE" != "200" ]]; then
-  echo "Error: API request failed with status $HTTP_CODE"
-  echo "$BODY"
-  exit 1
-fi
+    # Sort by id for consistency
+    return sorted(models, key=lambda m: m.get("id", ""))
 
-# Filter and extract model IDs
-# - model_picker_enabled == true
-# - name does not contain "Internal Only"
-# - Sort by id for consistency
-MODELS=$(echo "$BODY" | jq -r '
-  [.data[]
-   | select(.model_picker_enabled == true)
-   | select(.name | contains("Internal Only") | not)
-  ]
-  | sort_by(.id)
-  | .[].id
-')
 
-MODEL_COUNT=$(echo "$MODELS" | wc -l | tr -d ' ')
-echo "Found $MODEL_COUNT available models"
+def test_model(model_id: str, token: str) -> tuple[bool, str]:
+    """
+    Test a model by making a simple completion request.
 
-# Generate MODELS array for litellm-copilot (as a single string with actual newlines)
-MODELS_ARRAY="MODELS=("
-while IFS= read -r model; do
-  MODELS_ARRAY+=$'\n'"  \"$model\""
-done <<< "$MODELS"
-MODELS_ARRAY+=$'\n'")"
+    Returns (success, message) tuple.
+    """
+    full_model = f"github_copilot/{model_id}"
+    headers = {**HEADERS}
 
-# Generate markdown table for README
-TABLE_HEADER="| Model | Vendor | Category |"
-TABLE_SEP="| --- | --- | --- |"
-TABLE_ROWS=$(echo "$BODY" | jq -r '
-  [.data[]
-   | select(.model_picker_enabled == true)
-   | select(.name | contains("Internal Only") | not)
-  ]
-  | sort_by(.id)
-  | .[]
-  | "| \(.id) | \(.vendor) | \(.model_picker_category // "—") |"
-')
+    try:
+        # Use responses API for GPT-5 family (reasoning-capable)
+        if model_id.startswith("gpt-5"):
+            resp = responses(
+                model=full_model,
+                input=[{"role": "user", "content": TEST_PROMPT}],
+                headers=headers,
+                reasoning_effort="low",
+                request_timeout=30,
+                max_retries=0,
+            )
+            # Extract content from responses API format
+            content = None
+            if getattr(resp, "output", None):
+                for o in resp.output:
+                    if getattr(o, "content", None):
+                        for item in o.content:
+                            text_val = getattr(item, "text", None)
+                            if text_val:
+                                content = text_val
+                                break
+                    if content:
+                        break
+            if not content and getattr(resp, "output_text", None):
+                content = resp.output_text
+        else:
+            resp = completion(
+                model=full_model,
+                messages=[{"role": "user", "content": TEST_PROMPT}],
+                headers=headers,
+                request_timeout=30,
+                max_retries=0,
+            )
+            content = resp.choices[0].message.content
 
-if $DRY_RUN; then
-  echo ""
-  echo "=== DRY RUN - No files will be modified ==="
-  echo ""
-  echo "--- MODELS array for litellm-copilot ---"
-  echo "$MODELS_ARRAY"
-  echo ""
-  echo "--- Table for README.md ---"
-  echo "$TABLE_HEADER"
-  echo "$TABLE_SEP"
-  echo "$TABLE_ROWS"
-  echo ""
-  echo "--- Date: $TODAY ---"
-  exit 0
-fi
+        if content:
+            return True, f"OK: {content[:50]}..."
+        return False, "No content in response"
 
-# Update litellm-copilot
-echo "Updating $LITELLM_SCRIPT..."
+    except Exception as e:
+        return False, str(e)[:100]
 
-TEMP_FILE=$(mktemp)
-IN_MODELS_BLOCK=false
-MODELS_WRITTEN=false
 
-while IFS= read -r line || [[ -n "$line" ]]; do
-  # Update the date line
-  if [[ "$line" == "# Model list last updated:"* ]]; then
-    printf '%s\n' "# Model list last updated: $TODAY" >> "$TEMP_FILE"
-  # Start of MODELS array
-  elif [[ "$line" == "MODELS=("* ]]; then
-    IN_MODELS_BLOCK=true
-    if ! $MODELS_WRITTEN; then
-      printf '%s\n' "$MODELS_ARRAY" >> "$TEMP_FILE"
-      MODELS_WRITTEN=true
-    fi
-  # End of MODELS array (line is just ")")
-  elif $IN_MODELS_BLOCK && [[ "$line" == ")" ]]; then
-    IN_MODELS_BLOCK=false
-  # Inside MODELS array - skip (already written)
-  elif $IN_MODELS_BLOCK; then
-    continue
-  # Regular line
-  else
-    printf '%s\n' "$line" >> "$TEMP_FILE"
-  fi
-done < "$LITELLM_SCRIPT"
+def generate_models_array(model_ids: list[str]) -> str:
+    """Generate the MODELS=(...) array for the litellm-copilot script."""
+    lines = ["MODELS=("]
+    for model_id in model_ids:
+        lines.append(f'  "{model_id}"')
+    lines.append(")")
+    return "\n".join(lines)
 
-mv "$TEMP_FILE" "$LITELLM_SCRIPT"
-chmod +x "$LITELLM_SCRIPT"
 
-# Update README.md
-echo "Updating $README_FILE..."
+def generate_readme_table(models: list[dict]) -> str:
+    """Generate the markdown table for README.md."""
+    lines = [
+        "| Model | Vendor | Category |",
+        "| --- | --- | --- |",
+    ]
+    for m in models:
+        model_id = m.get("id", "")
+        vendor = m.get("vendor", "")
+        category = m.get("model_picker_category", "—")
+        lines.append(f"| {model_id} | {vendor} | {category} |")
+    return "\n".join(lines)
 
-TEMP_FILE=$(mktemp)
-IN_TABLE=false
-TABLE_WRITTEN=false
 
-while IFS= read -r line || [[ -n "$line" ]]; do
-  # Update the date line
-  if [[ "$line" == "Last updated:"* ]]; then
-    printf '%s\n' "Last updated: $TODAY" >> "$TEMP_FILE"
-  # Start of table (header row)
-  elif [[ "$line" == "| Model |"* ]]; then
-    IN_TABLE=true
-    if ! $TABLE_WRITTEN; then
-      printf '%s\n' "$TABLE_HEADER" >> "$TEMP_FILE"
-      printf '%s\n' "$TABLE_SEP" >> "$TEMP_FILE"
-      printf '%s\n' "$TABLE_ROWS" >> "$TEMP_FILE"
-      TABLE_WRITTEN=true
-    fi
-  # Table separator or data rows (starts with |)
-  elif $IN_TABLE && [[ "$line" == "|"* ]]; then
-    continue
-  # End of table (non-table line)
-  elif $IN_TABLE && [[ "$line" != "|"* ]]; then
-    IN_TABLE=false
-    printf '%s\n' "$line" >> "$TEMP_FILE"
-  # Regular line
-  else
-    printf '%s\n' "$line" >> "$TEMP_FILE"
-  fi
-done < "$README_FILE"
+def update_litellm_script(script_path: str, models_array: str, today: str) -> str:
+    """Update the litellm-copilot script with new models. Returns new content."""
+    with open(script_path) as f:
+        content = f.read()
 
-mv "$TEMP_FILE" "$README_FILE"
+    # Update the date line
+    content = re.sub(
+        r"^# Model list last updated:.*$",
+        f"# Model list last updated: {today}",
+        content,
+        flags=re.MULTILINE,
+    )
 
-echo ""
-echo "Done! Updated models list to $TODAY"
-echo ""
-echo "Models ($MODEL_COUNT):"
-echo "$MODELS" | sed 's/^/  /'
+    # Replace MODELS=(...) block
+    content = re.sub(
+        r"^MODELS=\([\s\S]*?^\)",
+        models_array,
+        content,
+        flags=re.MULTILINE,
+    )
+
+    return content
+
+
+def update_readme(readme_path: str, table: str, today: str) -> str:
+    """Update the README.md with new models table. Returns new content."""
+    with open(readme_path) as f:
+        content = f.read()
+
+    # Update the date line
+    content = re.sub(
+        r"^Last updated:.*$",
+        f"Last updated: {today}",
+        content,
+        flags=re.MULTILINE,
+    )
+
+    # Replace the table (from "| Model |" through the last table row)
+    content = re.sub(
+        r"^\| Model \|.*?(?=\n\n|\n[^|]|\Z)",
+        table,
+        content,
+        flags=re.MULTILINE | re.DOTALL,
+    )
+
+    return content
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Fetch and test GitHub Copilot models, update litellm-copilot files."
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Show what would change without modifying files",
+    )
+    args = parser.parse_args()
+
+    # Check for GITHUB_TOKEN
+    token = os.environ.get("GITHUB_TOKEN")
+    if not token:
+        print("Error: GITHUB_TOKEN is not set")
+        print("Set it to a GitHub PAT with the 'copilot' scope")
+        sys.exit(1)
+
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    litellm_script = os.path.join(script_dir, "litellm-copilot")
+    readme_file = os.path.join(script_dir, "README.md")
+    today = date.today().isoformat()
+
+    # Fetch models from API
+    print("Fetching models from GitHub Copilot API...")
+    try:
+        all_models = fetch_models(token)
+    except requests.RequestException as e:
+        print(f"Error fetching models: {e}")
+        sys.exit(1)
+
+    print(f"Found {len(all_models)} available models")
+    print()
+
+    # Test each model
+    print("Testing models with litellm...")
+    print("-" * 60)
+
+    working_models = []
+    failed_models = []
+
+    for model in all_models:
+        model_id = model.get("id", "")
+        print(f"Testing {model_id}...", end=" ", flush=True)
+
+        success, message = test_model(model_id, token)
+
+        if success:
+            print(f"PASS")
+            working_models.append(model)
+        else:
+            print(f"FAIL - {message}")
+            failed_models.append((model_id, message))
+
+    print("-" * 60)
+    print()
+
+    # Summary
+    print(f"Results: {len(working_models)} working, {len(failed_models)} failed")
+    print()
+
+    if failed_models:
+        print("Failed models:")
+        for model_id, reason in failed_models:
+            print(f"  - {model_id}: {reason}")
+        print()
+
+    if not working_models:
+        print("Error: No working models found!")
+        sys.exit(1)
+
+    working_ids = [m.get("id", "") for m in working_models]
+
+    # Generate updates
+    models_array = generate_models_array(working_ids)
+    readme_table = generate_readme_table(working_models)
+
+    if args.dry_run:
+        print("=== DRY RUN - No files will be modified ===")
+        print()
+        print("--- MODELS array for litellm-copilot ---")
+        print(models_array)
+        print()
+        print("--- Table for README.md ---")
+        print(readme_table)
+        print()
+        print(f"--- Date: {today} ---")
+        return
+
+    # Update files
+    print(f"Updating {litellm_script}...")
+    new_script = update_litellm_script(litellm_script, models_array, today)
+    with open(litellm_script, "w") as f:
+        f.write(new_script)
+
+    print(f"Updating {readme_file}...")
+    new_readme = update_readme(readme_file, readme_table, today)
+    with open(readme_file, "w") as f:
+        f.write(new_readme)
+
+    print()
+    print(f"Done! Updated models list to {today}")
+    print()
+    print(f"Working models ({len(working_ids)}):")
+    for model_id in working_ids:
+        print(f"  {model_id}")
+
+
+if __name__ == "__main__":
+    main()

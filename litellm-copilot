@@ -2,6 +2,11 @@
 
 # litellm-copilot - LiteLLM proxy for GitHub Copilot models
 #
+# Usage: litellm-copilot [--port <number>]
+#
+# Options:
+#   --port <number>  Port to run the proxy on (default: 4000)
+#
 # Environment variables:
 #   COPILOT_PROXY_TOKEN_CMD - Command that outputs your GitHub PAT (required)
 #   COPILOT_MODEL           - Model to use (optional, skips fzf selection)
@@ -12,13 +17,30 @@
 #   # macOS Keychain:
 #   export COPILOT_PROXY_TOKEN_CMD='security find-generic-password -a "$USER" -s copilot-token -w'
 
+# Default port
+PORT=4000
+
+# Parse command line arguments
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    --port)
+      PORT="$2"
+      shift 2
+      ;;
+    *)
+      echo "Unknown option: $1"
+      echo "Usage: litellm-copilot [--port <number>]"
+      exit 1
+      ;;
+  esac
+done
+
 # Model list last updated: 2026-01-11
 
 # List of supported models
 MODELS=(
   "claude-haiku-4.5"
   "claude-opus-4.5"
-  "claude-opus-41"
   "claude-sonnet-4"
   "claude-sonnet-4.5"
   "gemini-2.5-pro"
@@ -79,4 +101,4 @@ export GITHUB_TOKEN="$TOKEN"
 SCRIPT_DIR="${0:a:h}"
 CONFIG_FILE="$SCRIPT_DIR/config.yaml"
 
-litellm --config "$CONFIG_FILE" --model github_copilot/$SELECTED_MODEL --port 4000
+litellm --config "$CONFIG_FILE" --model github_copilot/$SELECTED_MODEL --port $PORT

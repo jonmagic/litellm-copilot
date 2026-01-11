@@ -18,8 +18,8 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install jq
-        run: sudo apt-get install -y jq
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
 
       - name: Run update-models script
         env:
