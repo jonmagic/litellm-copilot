@@ -12,47 +12,29 @@
 #   # macOS Keychain:
 #   export COPILOT_PROXY_TOKEN_CMD='security find-generic-password -a "$USER" -s copilot-token -w'
 
-# Copilot model probe results (Jan 8 2026)
-#
-# | Model | Status | Notes |
-# | --- | --- | --- |
-# | gpt-4.1 | working | normal chat endpoint |
-# | gpt-4o | working | normal chat endpoint |
-# | gpt-5-mini | working | normal chat endpoint |
-# | grok-code-fast-1 | working | normal chat endpoint |
-# | claude-haiku-4.5 | working | normal chat endpoint |
-# | claude-opus-4.5 | working | normal chat endpoint |
-# | claude-sonnet-4 | working | normal chat endpoint |
-# | claude-sonnet-4.5 | working | normal chat endpoint |
-# | gemini-2.5-pro | working | normal chat endpoint |
-# | gemini-3-flash | model_not_supported |
-# | gemini-3-pro | model_not_supported |
-# | gpt-5 | working | Responses API |
-# | gpt-5-codex | working | Responses API |
-# | gpt-5.1 | working | Responses API (returned model id `gpt-5.1-2025-11-13`) |
-# | gpt-5.1-codex | working | Responses API |
-# | gpt-5.1-codex-max | working | Responses API |
-# | gpt-5.1-codex-mini | working | Responses API |
-# | gpt-5.2 | working | Responses API (returned model id `gpt-5.2-2025-12-11`) |
+# Model list last updated: 2026-01-11
 
 # List of supported models
 MODELS=(
-  "gpt-4.1"
-  "gpt-4o"
-  "gpt-5-mini"
-  "grok-code-fast-1"
   "claude-haiku-4.5"
   "claude-opus-4.5"
+  "claude-opus-41"
   "claude-sonnet-4"
   "claude-sonnet-4.5"
   "gemini-2.5-pro"
+  "gemini-3-flash-preview"
+  "gemini-3-pro-preview"
+  "gpt-4.1"
+  "gpt-4o"
   "gpt-5"
   "gpt-5-codex"
+  "gpt-5-mini"
   "gpt-5.1"
   "gpt-5.1-codex"
   "gpt-5.1-codex-max"
   "gpt-5.1-codex-mini"
   "gpt-5.2"
+  "grok-code-fast-1"
 )
 
 # Check for COPILOT_PROXY_TOKEN_CMD

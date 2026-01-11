@@ -1,0 +1,187 @@
+#!/usr/bin/env bash
+
+# update-models - Fetch available Copilot models and update litellm-copilot + README
+#
+# Environment variables:
+#   GITHUB_TOKEN - GitHub PAT with copilot scope (required)
+#
+# Usage:
+#   ./update-models              # Update files in place
+#   ./update-models --dry-run    # Show what would change without modifying files
+
+set -e
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+LITELLM_SCRIPT="$SCRIPT_DIR/litellm-copilot"
+README_FILE="$SCRIPT_DIR/README.md"
+API_URL="https://api.githubcopilot.com/models"
+TODAY=$(date +%Y-%m-%d)
+
+DRY_RUN=false
+if [[ "$1" == "--dry-run" ]]; then
+  DRY_RUN=true
+fi
+
+# Check for required tools
+if ! command -v jq &> /dev/null; then
+  echo "Error: jq is required but not installed"
+  echo "Install it with: brew install jq"
+  exit 1
+fi
+
+if ! command -v curl &> /dev/null; then
+  echo "Error: curl is required but not installed"
+  exit 1
+fi
+
+# Check for GITHUB_TOKEN
+if [[ -z "$GITHUB_TOKEN" ]]; then
+  echo "Error: GITHUB_TOKEN is not set"
+  echo "Set it to a GitHub PAT with the 'copilot' scope"
+  exit 1
+fi
+
+echo "Fetching models from GitHub Copilot API..."
+
+# Fetch models from API
+RESPONSE=$(curl -s -w "\n%{http_code}" \
+  -H "Authorization: Bearer $GITHUB_TOKEN" \
+  -H "Editor-Version: vscode/1.95.0" \
+  -H "Editor-Plugin-Version: copilot-chat/0.22.4" \
+  -H "Copilot-Integration-Id: vscode-chat" \
+  "$API_URL")
+
+HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+BODY=$(echo "$RESPONSE" | sed '$d')
+
+if [[ "$HTTP_CODE" != "200" ]]; then
+  echo "Error: API request failed with status $HTTP_CODE"
+  echo "$BODY"
+  exit 1
+fi
+
+# Filter and extract model IDs
+# - model_picker_enabled == true
+# - name does not contain "Internal Only"
+# - Sort by id for consistency
+MODELS=$(echo "$BODY" | jq -r '
+  [.data[]
+   | select(.model_picker_enabled == true)
+   | select(.name | contains("Internal Only") | not)
+  ]
+  | sort_by(.id)
+  | .[].id
+')
+
+MODEL_COUNT=$(echo "$MODELS" | wc -l | tr -d ' ')
+echo "Found $MODEL_COUNT available models"
+
+# Generate MODELS array for litellm-copilot (as a single string with actual newlines)
+MODELS_ARRAY="MODELS=("
+while IFS= read -r model; do
+  MODELS_ARRAY+=$'\n'"  \"$model\""
+done <<< "$MODELS"
+MODELS_ARRAY+=$'\n'")"
+
+# Generate markdown table for README
+TABLE_HEADER="| Model | Vendor | Category |"
+TABLE_SEP="| --- | --- | --- |"
+TABLE_ROWS=$(echo "$BODY" | jq -r '
+  [.data[]
+   | select(.model_picker_enabled == true)
+   | select(.name | contains("Internal Only") | not)
+  ]
+  | sort_by(.id)
+  | .[]
+  | "| \(.id) | \(.vendor) | \(.model_picker_category // "—") |"
+')
+
+if $DRY_RUN; then
+  echo ""
+  echo "=== DRY RUN - No files will be modified ==="
+  echo ""
+  echo "--- MODELS array for litellm-copilot ---"
+  echo "$MODELS_ARRAY"
+  echo ""
+  echo "--- Table for README.md ---"
+  echo "$TABLE_HEADER"
+  echo "$TABLE_SEP"
+  echo "$TABLE_ROWS"
+  echo ""
+  echo "--- Date: $TODAY ---"
+  exit 0
+fi
+
+# Update litellm-copilot
+echo "Updating $LITELLM_SCRIPT..."
+
+TEMP_FILE=$(mktemp)
+IN_MODELS_BLOCK=false
+MODELS_WRITTEN=false
+
+while IFS= read -r line || [[ -n "$line" ]]; do
+  # Update the date line
+  if [[ "$line" == "# Model list last updated:"* ]]; then
+    printf '%s\n' "# Model list last updated: $TODAY" >> "$TEMP_FILE"
+  # Start of MODELS array
+  elif [[ "$line" == "MODELS=("* ]]; then
+    IN_MODELS_BLOCK=true
+    if ! $MODELS_WRITTEN; then
+      printf '%s\n' "$MODELS_ARRAY" >> "$TEMP_FILE"
+      MODELS_WRITTEN=true
+    fi
+  # End of MODELS array (line is just ")")
+  elif $IN_MODELS_BLOCK && [[ "$line" == ")" ]]; then
+    IN_MODELS_BLOCK=false
+  # Inside MODELS array - skip (already written)
+  elif $IN_MODELS_BLOCK; then
+    continue
+  # Regular line
+  else
+    printf '%s\n' "$line" >> "$TEMP_FILE"
+  fi
+done < "$LITELLM_SCRIPT"
+
+mv "$TEMP_FILE" "$LITELLM_SCRIPT"
+chmod +x "$LITELLM_SCRIPT"
+
+# Update README.md
+echo "Updating $README_FILE..."
+
+TEMP_FILE=$(mktemp)
+IN_TABLE=false
+TABLE_WRITTEN=false
+
+while IFS= read -r line || [[ -n "$line" ]]; do
+  # Update the date line
+  if [[ "$line" == "Last updated:"* ]]; then
+    printf '%s\n' "Last updated: $TODAY" >> "$TEMP_FILE"
+  # Start of table (header row)
+  elif [[ "$line" == "| Model |"* ]]; then
+    IN_TABLE=true
+    if ! $TABLE_WRITTEN; then
+      printf '%s\n' "$TABLE_HEADER" >> "$TEMP_FILE"
+      printf '%s\n' "$TABLE_SEP" >> "$TEMP_FILE"
+      printf '%s\n' "$TABLE_ROWS" >> "$TEMP_FILE"
+      TABLE_WRITTEN=true
+    fi
+  # Table separator or data rows (starts with |)
+  elif $IN_TABLE && [[ "$line" == "|"* ]]; then
+    continue
+  # End of table (non-table line)
+  elif $IN_TABLE && [[ "$line" != "|"* ]]; then
+    IN_TABLE=false
+    printf '%s\n' "$line" >> "$TEMP_FILE"
+  # Regular line
+  else
+    printf '%s\n' "$line" >> "$TEMP_FILE"
+  fi
+done < "$README_FILE"
+
+mv "$TEMP_FILE" "$README_FILE"
+
+echo ""
+echo "Done! Updated models list to $TODAY"
+echo ""
+echo "Models ($MODEL_COUNT):"
+echo "$MODELS" | sed 's/^/  /'

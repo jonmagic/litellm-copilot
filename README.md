@@ -131,26 +131,29 @@ In Open WebUI, go to **Settings → Connections** and set:
 
 ## Supported Models
 
-Tested and working as of January 2026:
+Last updated: 2026-01-11
 
-| Model | API Type |
-| --- | --- |
-| gpt-4.1 | Chat |
-| gpt-4o | Chat |
-| gpt-5-mini | Chat |
-| grok-code-fast-1 | Chat |
-| claude-haiku-4.5 | Chat |
-| claude-opus-4.5 | Chat |
-| claude-sonnet-4 | Chat |
-| claude-sonnet-4.5 | Chat |
-| gemini-2.5-pro | Chat |
-| gpt-5 | Responses |
-| gpt-5-codex | Responses |
-| gpt-5.1 | Responses |
-| gpt-5.1-codex | Responses |
-| gpt-5.1-codex-max | Responses |
-| gpt-5.1-codex-mini | Responses |
-| gpt-5.2 | Responses |
+| Model | Vendor | Category |
+| --- | --- | --- |
+| claude-haiku-4.5 | Anthropic | versatile |
+| claude-opus-4.5 | Anthropic | powerful |
+| claude-opus-41 | Anthropic | powerful |
+| claude-sonnet-4 | Anthropic | versatile |
+| claude-sonnet-4.5 | Anthropic | versatile |
+| gemini-2.5-pro | Google | powerful |
+| gemini-3-flash-preview | Google | lightweight |
+| gemini-3-pro-preview | Google | powerful |
+| gpt-4.1 | Azure OpenAI | versatile |
+| gpt-4o | Azure OpenAI | versatile |
+| gpt-5 | Azure OpenAI | versatile |
+| gpt-5-codex | OpenAI | powerful |
+| gpt-5-mini | Azure OpenAI | lightweight |
+| gpt-5.1 | OpenAI | versatile |
+| gpt-5.1-codex | OpenAI | powerful |
+| gpt-5.1-codex-max | OpenAI | powerful |
+| gpt-5.1-codex-mini | OpenAI | powerful |
+| gpt-5.2 | OpenAI | versatile |
+| grok-code-fast-1 | xAI | lightweight |
 
 ## License
 

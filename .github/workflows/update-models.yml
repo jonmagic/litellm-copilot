@@ -1,0 +1,69 @@
+name: Update Models
+
+on:
+  schedule:
+    # Run daily at 9am UTC
+    - cron: '0 9 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update-models:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install jq
+        run: sudo apt-get install -y jq
+
+      - name: Run update-models script
+        env:
+          GITHUB_TOKEN: ${{ secrets.COPILOT_PAT }}
+        run: ./update-models
+
+      - name: Check for changes
+        id: changes
+        run: |
+          if git diff --quiet; then
+            echo "changed=false" >> $GITHUB_OUTPUT
+          else
+            echo "changed=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create Pull Request
+        if: steps.changes.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          DATE=$(date +%Y-%m-%d)
+          BRANCH="update-models-$DATE"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git checkout -b "$BRANCH"
+          git add -A
+          git commit -m "chore: update model list ($DATE)"
+          git push -u origin "$BRANCH"
+
+          gh pr create \
+            --title "Update model list ($DATE)" \
+            --body "$(cat <<'EOF'
+          ## Summary
+
+          Automated update of available GitHub Copilot models from the API.
+
+          This PR was created by the daily update-models workflow.
+
+          ## Changes
+
+          - Updated model list in \`litellm-copilot\`
+          - Updated supported models table in \`README.md\`
+          - Updated last checked date
+          EOF
+          )"
