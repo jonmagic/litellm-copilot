@@ -106,33 +106,56 @@ Configure your favorite AI tools to use the proxy. Add these to your shell profi
 
 ### Claude Code
 
+Install:
+```bash
+npm install -g @anthropic-ai/claude-code
+```
+
+Configure:
 ```bash
 export ANTHROPIC_BASE_URL="http://localhost:4000"
 export ANTHROPIC_AUTH_TOKEN="fake-key"  # Required but not used
 ```
 
+Test:
+```bash
+claude -p "What is 2+2?"
+```
+
 ### OpenAI Codex CLI
 
+Install:
+```bash
+npm install -g @openai/codex@alpha
+```
+
+Configure:
 ```bash
 export OPENAI_BASE_URL="http://localhost:4000"
 export OPENAI_API_KEY="fake-key"  # Required but not used
 ```
 
-Then run: `codex --model claude-sonnet-4`
+Test:
+```bash
+codex exec "What is 2+2?"
+```
 
 ### Gemini CLI
 
+Install:
+```bash
+npm install -g @google/gemini-cli@preview
+```
+
+Configure:
 ```bash
 export GOOGLE_GEMINI_BASE_URL="http://localhost:4000"
 export GEMINI_API_KEY="fake-key"  # Required but not used
 ```
 
-### Qwen Code CLI
-
+Test:
 ```bash
-export OPENAI_BASE_URL="http://localhost:4000"
-export OPENAI_API_KEY="fake-key"  # Required but not used
-export OPENAI_MODEL="claude-sonnet-4"
+gemini -p "What is 2+2?"
 ```
 
 ### Open WebUI
