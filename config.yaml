@@ -1,0 +1,14 @@
+model_list:
+  - model_name: github_copilot/*
+    litellm_params:
+      model: github_copilot/*
+      api_key: os.environ/GITHUB_TOKEN
+      extra_headers:
+        Editor-Version: "vscode/1.95.0"
+        Editor-Plugin-Version: "copilot-chat/0.22.4"
+        Openai-Organization: "github-copilot"
+        Openai-Intent: "conversation-panel"
+        Copilot-Vision-Request: "true"
+
+litellm_settings:
+  drop_params: true

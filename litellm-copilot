@@ -1,0 +1,100 @@
+#!/usr/bin/env zsh
+
+# litellm-copilot - LiteLLM proxy for GitHub Copilot models
+#
+# Environment variables:
+#   COPILOT_PROXY_TOKEN_CMD - Command that outputs your GitHub PAT (required)
+#   COPILOT_MODEL           - Model to use (optional, skips fzf selection)
+#
+# Example token commands for your shell profile:
+#   # 1Password:
+#   export COPILOT_PROXY_TOKEN_CMD='op read "op://Vault/Item/field"'
+#   # macOS Keychain:
+#   export COPILOT_PROXY_TOKEN_CMD='security find-generic-password -a "$USER" -s copilot-token -w'
+
+# Copilot model probe results (Jan 8 2026)
+#
+# | Model | Status | Notes |
+# | --- | --- | --- |
+# | gpt-4.1 | working | normal chat endpoint |
+# | gpt-4o | working | normal chat endpoint |
+# | gpt-5-mini | working | normal chat endpoint |
+# | grok-code-fast-1 | working | normal chat endpoint |
+# | claude-haiku-4.5 | working | normal chat endpoint |
+# | claude-opus-4.5 | working | normal chat endpoint |
+# | claude-sonnet-4 | working | normal chat endpoint |
+# | claude-sonnet-4.5 | working | normal chat endpoint |
+# | gemini-2.5-pro | working | normal chat endpoint |
+# | gemini-3-flash | model_not_supported |
+# | gemini-3-pro | model_not_supported |
+# | gpt-5 | working | Responses API |
+# | gpt-5-codex | working | Responses API |
+# | gpt-5.1 | working | Responses API (returned model id `gpt-5.1-2025-11-13`) |
+# | gpt-5.1-codex | working | Responses API |
+# | gpt-5.1-codex-max | working | Responses API |
+# | gpt-5.1-codex-mini | working | Responses API |
+# | gpt-5.2 | working | Responses API (returned model id `gpt-5.2-2025-12-11`) |
+
+# List of supported models
+MODELS=(
+  "gpt-4.1"
+  "gpt-4o"
+  "gpt-5-mini"
+  "grok-code-fast-1"
+  "claude-haiku-4.5"
+  "claude-opus-4.5"
+  "claude-sonnet-4"
+  "claude-sonnet-4.5"
+  "gemini-2.5-pro"
+  "gpt-5"
+  "gpt-5-codex"
+  "gpt-5.1"
+  "gpt-5.1-codex"
+  "gpt-5.1-codex-max"
+  "gpt-5.1-codex-mini"
+  "gpt-5.2"
+)
+
+# Check for COPILOT_PROXY_TOKEN_CMD
+if [[ -z "$COPILOT_PROXY_TOKEN_CMD" ]]; then
+  echo "Error: COPILOT_PROXY_TOKEN_CMD is not set"
+  echo "Set it in your shell profile. Examples:"
+  echo '  # 1Password:'
+  echo '  export COPILOT_PROXY_TOKEN_CMD='\''op read "op://Vault/Item/field"'\'''
+  echo '  # macOS Keychain:'
+  echo '  export COPILOT_PROXY_TOKEN_CMD='\''security find-generic-password -a "$USER" -s copilot-token -w'\'''
+  exit 1
+fi
+
+# Select model: use COPILOT_MODEL if set, otherwise use fzf
+if [[ -n "$COPILOT_MODEL" ]]; then
+  SELECTED_MODEL="$COPILOT_MODEL"
+else
+  # Check if fzf is installed
+  if ! command -v fzf &> /dev/null; then
+    echo "Error: fzf is not installed (needed when COPILOT_MODEL is not set)"
+    echo "Install it with: brew install fzf"
+    exit 1
+  fi
+
+  # Use fzf to select a model
+  SELECTED_MODEL=$(printf '%s\n' "${MODELS[@]}" | fzf --prompt="Select a model: " --height=40% --reverse)
+
+  # Exit if no model was selected
+  if [[ -z "$SELECTED_MODEL" ]]; then
+    echo "No model selected. Exiting."
+    exit 1
+  fi
+fi
+
+echo "Starting litellm with model: $SELECTED_MODEL"
+
+# Get token using the configured command
+TOKEN=$(eval "$COPILOT_PROXY_TOKEN_CMD") || exit 1
+export GITHUB_TOKEN="$TOKEN"
+
+# Get the directory where this script is located
+SCRIPT_DIR="${0:a:h}"
+CONFIG_FILE="$SCRIPT_DIR/config.yaml"
+
+litellm --config "$CONFIG_FILE" --model github_copilot/$SELECTED_MODEL --port 4000
