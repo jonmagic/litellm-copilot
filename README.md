@@ -158,6 +158,24 @@ Test:
 gemini -p "What is 2+2?"
 ```
 
+### Aider
+
+Install:
+```bash
+pip install aider-chat
+```
+
+Configure:
+```bash
+export AIDER_OPENAI_API_BASE="http://localhost:4000"
+export OPENAI_API_KEY="fake-key"  # Required but not used
+```
+
+Test:
+```bash
+aider --model openai/claude-sonnet-4 --message "What is 2+2?"
+```
+
 ## Supported Models
 
 Last updated: 2026-01-11
