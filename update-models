@@ -169,7 +169,7 @@ TABLE_ROWS=""
 for model_id in "${WORKING_MODELS[@]}"; do
   vendor=$(echo "$MODELS_JSON" | jq -r ".[] | select(.id == \"$model_id\") | .vendor")
   category=$(echo "$MODELS_JSON" | jq -r ".[] | select(.id == \"$model_id\") | .model_picker_category // \"—\"")
-  TABLE_ROWS+="| $model_id | $vendor | $category |"$'\n'
+  TABLE_ROWS+="| \`$model_id\` | $vendor | $category |"$'\n'
 done
 TABLE_ROWS=${TABLE_ROWS%$'\n'}  # Remove trailing newline
 
