@@ -136,6 +136,19 @@ codex exec "What is 2+2?"
 
 ### Gemini CLI
 
+> **Note:** Gemini CLI requires a fix in LiteLLM that forwards `extra_headers` through the generateContent adapter. This fix is pending in [PR #18935](https://github.com/BerriAI/litellm/pull/18935). Until it's merged, you can run the proxy using a patched version:
+> ```bash
+> # Clone the patched fork
+> git clone https://github.com/jonmagic/litellm.git ~/litellm-patched
+>
+> # Create a venv and install (Python 3.13 required, uvloop doesn't support 3.14+)
+> python3.13 -m venv ~/litellm-patched/.venv
+> ~/litellm-patched/.venv/bin/pip install -e ~/litellm-patched[proxy]
+>
+> # Run the proxy using the patched version
+> GITHUB_TOKEN=$(eval "$COPILOT_PROXY_TOKEN_CMD") ~/litellm-patched/.venv/bin/litellm --config ~/.litellm-copilot/config.yaml --port 4000
+> ```
+
 Install:
 ```bash
 npm install -g @google/gemini-cli@preview
