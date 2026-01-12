@@ -11,6 +11,7 @@ router_settings:
   model_group_alias:
     # Supported models (synced by update-models)
     "claude-haiku-4.5": "claude-haiku-4.5"
+    "claude-haiku-4-5-20251001": "claude-sonnet-4.5"
     "claude-opus-4.5": "claude-opus-4.5"
     "claude-sonnet-4": "claude-sonnet-4"
     "claude-sonnet-4.5": "claude-sonnet-4.5"
