@@ -7,7 +7,6 @@ Unlike other "copilot-proxy" projects that implement custom proxy servers, this 
 ## Prerequisites
 
 - [uv](https://docs.astral.sh/uv/) (Python package runner)
-- [fzf](https://github.com/junegunn/fzf) (for interactive model selection)
 - A GitHub account with Copilot access
 - A secret manager (1Password CLI or macOS Keychain)
 
@@ -59,9 +58,6 @@ export COPILOT_PROXY_TOKEN_CMD='op read "op://YourVault/YourItem/token"'
 
 # macOS Keychain:
 export COPILOT_PROXY_TOKEN_CMD='security find-generic-password -a "$USER" -s copilot-token -w'
-
-# Optional: Default model (skips fzf selection)
-export COPILOT_MODEL="claude-opus-4.5"
 ```
 
 ### 5. Install the script
@@ -95,8 +91,6 @@ To use a custom port:
 ```bash
 litellm-copilot --port 8080
 ```
-
-If `COPILOT_MODEL` is not set, you'll get an interactive model picker via fzf. Otherwise, it starts immediately with your configured model.
 
 The proxy runs on `http://localhost:4000` by default.
 

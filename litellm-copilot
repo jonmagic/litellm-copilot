@@ -9,7 +9,6 @@
 #
 # Environment variables:
 #   COPILOT_PROXY_TOKEN_CMD - Command that outputs your GitHub PAT (required)
-#   COPILOT_MODEL           - Model to use (optional, skips fzf selection)
 #
 # Example token commands for your shell profile:
 #   # 1Password:
@@ -35,30 +34,6 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-# Model list last updated: 2026-01-11
-
-# List of supported models
-MODELS=(
-  "claude-haiku-4.5"
-  "claude-opus-4.5"
-  "claude-sonnet-4"
-  "claude-sonnet-4.5"
-  "gemini-2.5-pro"
-  "gemini-3-flash-preview"
-  "gemini-3-pro-preview"
-  "gpt-4.1"
-  "gpt-4o"
-  "gpt-5"
-  "gpt-5-codex"
-  "gpt-5-mini"
-  "gpt-5.1"
-  "gpt-5.1-codex"
-  "gpt-5.1-codex-max"
-  "gpt-5.1-codex-mini"
-  "gpt-5.2"
-  "grok-code-fast-1"
-)
-
 # Check for COPILOT_PROXY_TOKEN_CMD
 if [[ -z "$COPILOT_PROXY_TOKEN_CMD" ]]; then
   echo "Error: COPILOT_PROXY_TOKEN_CMD is not set"
@@ -69,29 +44,6 @@ if [[ -z "$COPILOT_PROXY_TOKEN_CMD" ]]; then
   echo '  export COPILOT_PROXY_TOKEN_CMD='\''security find-generic-password -a "$USER" -s copilot-token -w'\'''
   exit 1
 fi
-
-# Select model: use COPILOT_MODEL if set, otherwise use fzf
-if [[ -n "$COPILOT_MODEL" ]]; then
-  SELECTED_MODEL="$COPILOT_MODEL"
-else
-  # Check if fzf is installed
-  if ! command -v fzf &> /dev/null; then
-    echo "Error: fzf is not installed (needed when COPILOT_MODEL is not set)"
-    echo "Install it with: brew install fzf"
-    exit 1
-  fi
-
-  # Use fzf to select a model
-  SELECTED_MODEL=$(printf '%s\n' "${MODELS[@]}" | fzf --prompt="Select a model: " --height=40% --reverse)
-
-  # Exit if no model was selected
-  if [[ -z "$SELECTED_MODEL" ]]; then
-    echo "No model selected. Exiting."
-    exit 1
-  fi
-fi
-
-echo "Starting litellm with model: $SELECTED_MODEL"
 
 # Get token using the configured command
 TOKEN=$(eval "$COPILOT_PROXY_TOKEN_CMD") || exit 1
@@ -108,5 +60,7 @@ if ! command -v uvx &> /dev/null; then
   exit 1
 fi
 
+echo "Starting litellm proxy on port $PORT..."
+
 # Pin to Python 3.13 because uvloop doesn't support Python 3.14+
-uvx --python 3.13 --from 'litellm[proxy]' litellm --config "$CONFIG_FILE" --model github_copilot/$SELECTED_MODEL --port $PORT
+uvx --python 3.13 --from 'litellm[proxy]' litellm --config "$CONFIG_FILE" --port $PORT

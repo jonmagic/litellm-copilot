@@ -12,7 +12,6 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-LITELLM_SCRIPT="$SCRIPT_DIR/litellm-copilot"
 README_FILE="$SCRIPT_DIR/README.md"
 CONFIG_FILE="$SCRIPT_DIR/config.yaml"
 TODAY=$(date +%Y-%m-%d)
@@ -163,13 +162,6 @@ if [[ ${#WORKING_MODELS[@]} -eq 0 ]]; then
   exit 1
 fi
 
-# Generate MODELS array for litellm-copilot
-MODELS_ARRAY="MODELS=("
-for model_id in "${WORKING_MODELS[@]}"; do
-  MODELS_ARRAY+=$'\n'"  \"$model_id\""
-done
-MODELS_ARRAY+=$'\n'")"
-
 # Generate markdown table for README (only include working models)
 TABLE_HEADER="| Model | Vendor | Category |"
 TABLE_SEP="| --- | --- | --- |"
@@ -191,9 +183,6 @@ CONFIG_ALIASES=${CONFIG_ALIASES%$'\n'}  # Remove trailing newline
 if $DRY_RUN; then
   echo "=== DRY RUN - No files will be modified ==="
   echo
-  echo "--- MODELS array for litellm-copilot ---"
-  echo "$MODELS_ARRAY"
-  echo
   echo "--- Table for README.md ---"
   echo "$TABLE_HEADER"
   echo "$TABLE_SEP"
@@ -205,39 +194,6 @@ if $DRY_RUN; then
   echo "--- Date: $TODAY ---"
   exit 0
 fi
-
-# Update litellm-copilot
-echo "Updating $LITELLM_SCRIPT..."
-
-TEMP_FILE=$(mktemp)
-IN_MODELS_BLOCK=false
-MODELS_WRITTEN=false
-
-while IFS= read -r line || [[ -n "$line" ]]; do
-  # Update the date line
-  if [[ "$line" == "# Model list last updated:"* ]]; then
-    printf '%s\n' "# Model list last updated: $TODAY" >> "$TEMP_FILE"
-  # Start of MODELS array
-  elif [[ "$line" == "MODELS=("* ]]; then
-    IN_MODELS_BLOCK=true
-    if ! $MODELS_WRITTEN; then
-      printf '%s\n' "$MODELS_ARRAY" >> "$TEMP_FILE"
-      MODELS_WRITTEN=true
-    fi
-  # End of MODELS array (line is just ")")
-  elif $IN_MODELS_BLOCK && [[ "$line" == ")" ]]; then
-    IN_MODELS_BLOCK=false
-  # Inside MODELS array - skip (already written)
-  elif $IN_MODELS_BLOCK; then
-    continue
-  # Regular line
-  else
-    printf '%s\n' "$line" >> "$TEMP_FILE"
-  fi
-done < "$LITELLM_SCRIPT"
-
-mv "$TEMP_FILE" "$LITELLM_SCRIPT"
-chmod +x "$LITELLM_SCRIPT"
 
 # Update README.md
 echo "Updating $README_FILE..."
