@@ -185,7 +185,7 @@ aider --model openai/claude-sonnet-4 --message "What is 2+2?"
 
 ## Supported Models
 
-Last updated: 2026-01-11
+Last updated: 2026-01-12
 
 | Model | Vendor | Category |
 | --- | --- | --- |
