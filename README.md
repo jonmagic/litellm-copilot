@@ -183,6 +183,64 @@ Test:
 aider --model openai/claude-sonnet-4 --message "What is 2+2?"
 ```
 
+### llm (Simon Willison's LLM CLI)
+
+Install llm:
+
+**Homebrew (recommended):**
+```bash
+brew install llm
+```
+
+**pip:**
+```bash
+pip install llm
+```
+
+Install the Azure plugin:
+```bash
+llm install llm-azure
+```
+
+Verify the plugin is installed:
+```bash
+llm plugins
+# Should show llm-azure in the list
+```
+
+Configure a dummy API key (llm requires an API key even though the proxy doesn't use it):
+```bash
+llm keys set litellm
+# Enter: fake-api-key
+```
+
+Add model configurations to `~/.config/io.datasette.llm/azure/config.yaml`:
+```yaml
+# Local litellm proxy models
+- model_id: copilot-gpt-4.1
+  provider: openai
+  model_name: gpt-4.1
+  endpoint: http://localhost:4000/v1/
+  api_key_name: litellm
+- model_id: copilot-claude-sonnet-4.5
+  provider: openai
+  model_name: claude-sonnet-4.5
+  endpoint: http://localhost:4000/v1/
+  api_key_name: litellm
+```
+
+> **Note:** The `copilot-` prefix helps distinguish litellm-copilot models from other configured models in llm. You can add any of the models from the Supported Models section below using this pattern.
+
+Set your default model:
+```bash
+llm models default copilot-gpt-4.1
+```
+
+Test:
+```bash
+llm "What is 2+2?"
+```
+
 ## Supported Models
 
 Last updated: 2026-01-11
