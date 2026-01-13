@@ -98,7 +98,7 @@ The proxy runs on `http://localhost:4000` by default.
 
 Configure your favorite AI tools to use the proxy. Add these to your shell profile or set them before running the tool.
 
-### Claude Code
+### [Claude Code](https://code.claude.com/docs/en/overview)
 
 Install:
 ```bash
@@ -116,7 +116,7 @@ Test:
 claude -p "What is 2+2?"
 ```
 
-### OpenAI Codex CLI
+### [OpenAI Codex CLI](https://chatgpt.com/features/codex)
 
 Install:
 ```bash
@@ -134,7 +134,7 @@ Test:
 codex exec "What is 2+2?"
 ```
 
-### Gemini CLI
+### [Gemini CLI](https://geminicli.com)
 
 > **Note:** Gemini CLI requires a fix in LiteLLM that forwards `extra_headers` through the generateContent adapter. This fix is pending in [PR #18935](https://github.com/BerriAI/litellm/pull/18935). Until it's merged, you can run the proxy using a patched version:
 > ```bash
@@ -165,7 +165,7 @@ Test:
 gemini -p "What is 2+2?"
 ```
 
-### Aider
+### [Aider](https://aider.chat)
 
 Install:
 ```bash
@@ -183,7 +183,7 @@ Test:
 aider --model openai/claude-sonnet-4 --message "What is 2+2?"
 ```
 
-### llm (Simon Willison's LLM CLI)
+### [llm](https://llm.datasette.io) (Simon Willison's LLM CLI)
 
 Install llm:
 
