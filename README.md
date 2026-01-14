@@ -243,7 +243,7 @@ llm "What is 2+2?"
 
 ## Supported Models
 
-Last updated: 2026-01-11
+Last updated: 2026-01-14
 
 | Model | Vendor | Category |
 | --- | --- | --- |
