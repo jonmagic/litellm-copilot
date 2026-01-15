@@ -243,7 +243,7 @@ llm "What is 2+2?"
 
 ## Supported Models
 
-Last updated: 2026-01-11
+Last updated: 2026-01-15
 
 | Model | Vendor | Category |
 | --- | --- | --- |
@@ -256,7 +256,6 @@ Last updated: 2026-01-11
 | `gemini-3-pro-preview` | Google | powerful |
 | `gpt-4.1` | Azure OpenAI | versatile |
 | `gpt-4o` | Azure OpenAI | versatile |
-| `gpt-5` | Azure OpenAI | versatile |
 | `gpt-5-codex` | OpenAI | powerful |
 | `gpt-5-mini` | Azure OpenAI | lightweight |
 | `gpt-5.1` | OpenAI | versatile |
@@ -264,6 +263,7 @@ Last updated: 2026-01-11
 | `gpt-5.1-codex-max` | OpenAI | powerful |
 | `gpt-5.1-codex-mini` | OpenAI | powerful |
 | `gpt-5.2` | OpenAI | versatile |
+| `gpt-5.2-codex` | OpenAI | powerful |
 | `grok-code-fast-1` | xAI | lightweight |
 
 ## License
