@@ -92,6 +92,12 @@ To use a custom port:
 litellm-copilot --port 8080
 ```
 
+To use LiteLLM nightly from GitHub main:
+
+```bash
+litellm-copilot --nightly
+```
+
 The proxy runs on `http://localhost:4000` by default.
 
 ## Using with AI Agents
