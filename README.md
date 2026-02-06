@@ -122,22 +122,16 @@ Test:
 claude -p "What is 2+2?"
 ```
 
-### [OpenAI Codex CLI](https://chatgpt.com/features/codex)
+### [OpenCode](https://opencode.ai)
 
 Install:
 ```bash
-npm install -g @openai/codex@alpha
+npm install -g opencode@latest
 ```
 
-Configure:
+OpenCode has built-in GitHub Copilot support — no proxy needed:
 ```bash
-export OPENAI_BASE_URL="http://localhost:4000"
-export OPENAI_API_KEY="fake-key"  # Required but not used
-```
-
-Test:
-```bash
-codex exec "What is 2+2?"
+opencode auth login
 ```
 
 ### [Gemini CLI](https://geminicli.com)
