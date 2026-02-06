@@ -1,4 +1,26 @@
 model_list:
+  # Claude Code aliases (catch dated Anthropic model names, route to Copilot names)
+  - model_name: "claude-haiku-4-5*"
+    litellm_params:
+      model: github_copilot/claude-haiku-4.5
+      api_key: os.environ/GITHUB_TOKEN
+  - model_name: "claude-sonnet-4-5*"
+    litellm_params:
+      model: github_copilot/claude-sonnet-4.5
+      api_key: os.environ/GITHUB_TOKEN
+  - model_name: "claude-sonnet-4-0*"
+    litellm_params:
+      model: github_copilot/claude-sonnet-4
+      api_key: os.environ/GITHUB_TOKEN
+  - model_name: "claude-opus-4-5*"
+    litellm_params:
+      model: github_copilot/claude-opus-4.5
+      api_key: os.environ/GITHUB_TOKEN
+  - model_name: "claude-opus-4-6*"
+    litellm_params:
+      model: github_copilot/claude-opus-4.6
+      api_key: os.environ/GITHUB_TOKEN
+  # Wildcard fallback for everything else
   - model_name: "*"
     litellm_params:
       model: github_copilot/*
@@ -9,27 +31,6 @@ litellm_settings:
 
 router_settings:
   model_group_alias:
-    # Supported models (synced by update-models)
-    "claude-haiku-4.5": "claude-haiku-4.5"
-    "claude-opus-4.5": "claude-opus-4.5"
-    "claude-opus-4.6": "claude-opus-4.6"
-    "claude-sonnet-4": "claude-sonnet-4"
-    "claude-sonnet-4.5": "claude-sonnet-4.5"
-    "gemini-2.5-pro": "gemini-2.5-pro"
-    "gemini-3-flash-preview": "gemini-3-flash-preview"
-    "gemini-3-pro-preview": "gemini-3-pro-preview"
-    "gpt-4.1": "gpt-4.1"
-    "gpt-4o": "gpt-4o"
-    "gpt-5": "gpt-5"
-    "gpt-5-codex": "gpt-5-codex"
-    "gpt-5-mini": "gpt-5-mini"
-    "gpt-5.1": "gpt-5.1"
-    "gpt-5.1-codex": "gpt-5.1-codex"
-    "gpt-5.1-codex-max": "gpt-5.1-codex-max"
-    "gpt-5.1-codex-mini": "gpt-5.1-codex-mini"
-    "gpt-5.2": "gpt-5.2"
-    "gpt-5.2-codex": "gpt-5.2-codex"
-    "grok-code-fast-1": "grok-code-fast-1"
     # Gemini CLI aliases (map unsupported model names to supported ones)
     "gemini-2.5-flash-lite": "gemini-3-flash-preview"
     "gemini-2.5-flash": "gemini-3-flash-preview"
