@@ -243,13 +243,15 @@ llm "What is 2+2?"
 
 ## Supported Models
 
-Last updated: 2026-02-06
+Last updated: 2026-02-12
 
 | Model | Vendor | Category |
 | --- | --- | --- |
 | `claude-haiku-4.5` | Anthropic | versatile |
 | `claude-opus-4.5` | Anthropic | powerful |
 | `claude-opus-4.6` | Anthropic | powerful |
+| `claude-opus-4.6-1m` | Anthropic | powerful |
+| `claude-opus-4.6-fast` | Anthropic | powerful |
 | `claude-sonnet-4` | Anthropic | versatile |
 | `claude-sonnet-4.5` | Anthropic | versatile |
 | `gemini-2.5-pro` | Google | powerful |
