@@ -243,13 +243,13 @@ llm "What is 2+2?"
 
 ## Supported Models
 
-Last updated: 2026-02-06
+Last updated: 2026-03-11
 
 | Model | Vendor | Category |
 | --- | --- | --- |
 | `claude-haiku-4.5` | Anthropic | versatile |
 | `claude-opus-4.5` | Anthropic | powerful |
-| `claude-opus-4.6` | Anthropic | powerful |
+| `claude-opus-4.6-1m` | Anthropic | powerful |
 | `claude-sonnet-4` | Anthropic | versatile |
 | `claude-sonnet-4.5` | Anthropic | versatile |
 | `gemini-2.5-pro` | Google | powerful |
@@ -257,15 +257,12 @@ Last updated: 2026-02-06
 | `gemini-3-pro-preview` | Google | powerful |
 | `gpt-4.1` | Azure OpenAI | versatile |
 | `gpt-4o` | Azure OpenAI | versatile |
-| `gpt-5` | Azure OpenAI | versatile |
-| `gpt-5-codex` | OpenAI | powerful |
 | `gpt-5-mini` | Azure OpenAI | lightweight |
 | `gpt-5.1` | OpenAI | versatile |
 | `gpt-5.1-codex` | OpenAI | powerful |
 | `gpt-5.1-codex-max` | OpenAI | powerful |
 | `gpt-5.1-codex-mini` | OpenAI | powerful |
 | `gpt-5.2` | OpenAI | versatile |
-| `gpt-5.2-codex` | OpenAI | powerful |
 | `grok-code-fast-1` | xAI | lightweight |
 
 ## License
